@@ -314,7 +314,7 @@ const DisplayData = ({ data }) => {
           />
         }
       />
-      <RawDataTable data={data} headers={headers} />
+      {showAnalysis && <RawDataTable data={data} headers={headers} />}
       {showAnalysis && <Sources />}
     </>
   )
