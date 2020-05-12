@@ -21,24 +21,33 @@ const Plot = createPlotlyComponent(Plotly);
 function App() {
   const [data, setData] = React.useState()
 
-  const getCsvData = async () => {
-    const fetchFile = () => fetch('..\\time_series_covid19_confirmed_global.csv').then(response => {
-      let reader = response.body.getReader();
-      let decoder = new TextDecoder('utf-8');
+  //   // script to process the data from the csv
+  //   const getCsvData = async () => {
+  //   const fetchFile = () => fetch('..\\time_series_covid19_confirmed_global.csv').then(response => {
+  //     let reader = response.body.getReader();
+  //     let decoder = new TextDecoder('utf-8');
 
-      return reader.read().then(function (result) {
-        return decoder.decode(result.value);
-      });
-    })
+  //     return reader.read().then(function (result) {
+  //       return decoder.decode(result.value);
+  //     });
+  //   })
 
-    let csvData = await fetchFile()
-    parseCSV.parse(csvData, {
-      complete: parsedData => setData(parsedData.data)
-    });
-  }
+  //   let csvData = await fetchFile()
+  //   parseCSV.parse(csvData, {
+  //     complete: parsedData => setData(parsedData.data)
+  //   });
+  // }
+
+  // useEffect(() => {
+  //   getCsvData()
+  // }, [])
+
+  //    useEffect(() => {
+  //      console.log({data})
+  //    }, [data])
 
   useEffect(() => {
-    getCsvData()
+    fetch("..\\formattedData.json").then(res => res.json()).then(res => setData(res))
   }, [])
 
   return (
@@ -62,7 +71,7 @@ function App() {
                   <span>In other words, chaos happens in a system when all of the following are true:</span>
                   <ul>
                     <li><b>Deterministic:</b> the behavior of the system (for example, temperature change over time) is determined by initial conditions (for example, starting temperature, day of the year, etc).</li>
-                    <li><b>Sensitive:</b> the behavior of the system can be changed <em>dramatically</em> by a <em>small</em> change in the initial conditions.</li>
+                    <li><b>Sensitive:</b> the behavior of the system can be changed <em>dramatically</em> by a <em>small</em> change in the system. For example, by doubling spread rate you might expect double the cases, but might actually see a decrease in cases by a factor of 6.</li>
                     <li><b>Numerically unpredictable:</b> the future behavior of the system is not quantitatively predictable.<br /> We might be able to find trends, but we can't solve chaotic systems to find exact answers like "how many people will get this disease?" or "what date will have X number of cases?"</li>
                   </ul>
                 </div>
@@ -125,34 +134,44 @@ const DisplayData = ({ data }) => {
       region: regionAsArray[0],
       country: regionAsArray[1],
       lat: regionAsArray[2],
-      long: regionAsArray[3],
-      dayToDayProportion: regionAsArray.slice(5, regionAsArray.length).map((infectedCount, index, counts) => {
-        if (index === 0) return 0
-        else if (counts[index - 1] == 0) return 0
-        else return ((infectedCount) / counts[index - 1])
-      }),
-      values: regionAsArray.slice(4, regionAsArray.length)
+      long: regionAsArray[3]
     }
+
+    // Calculate values, values per capita, and shifted values per capita
+    newLocation.values = regionAsArray.slice(4, regionAsArray.length)
+    newLocation.valuesPerCapita = newLocation.values.map(cases => 100 * cases / populations[newLocation.country])
+    newLocation.valuesPerCapitaShifted = newLocation.valuesPerCapita.filter(el => el !== 0)
+
+    // Calculate derivatives, derivatives per capita, and shifted derivatives per capita
     newLocation.derivatives = newLocation.values.map((_, index, counts) => {
       return pointDerivative(index, counts)
     })
-    newLocation.doubleDerivatives = newLocation.derivatives.map((_, index, counts) => {
-      return pointDerivative(index, counts)
-    })
-    newLocation.valuesPerCapita = newLocation.values.map(cases => cases / populations[newLocation.country])
     newLocation.derivativesPerCapita = newLocation.valuesPerCapita.map((_, index, counts) => {
       return pointDerivative(index, counts)
     })
+    newLocation.derivativesPerCapitaShifted = newLocation.derivativesPerCapita.filter(el => el !== 0)
+    
+    // Calculate double derivatives, double derivatives per capita, and shifted double derivatives per capita
+    newLocation.doubleDerivatives = newLocation.derivatives.map((_, index, counts) => {
+      return pointDerivative(index, counts)
+    }).filter(el => el !== 0)
     newLocation.doubleDerivativesPerCapita = newLocation.derivativesPerCapita.map((_, index, counts) => {
       return pointDerivative(index, counts)
     })
-    if (newLocation.country === "US") console.log(newLocation.valuesPerCapita)
+    newLocation.doubleDerivativesPerCapitaShifted = newLocation.doubleDerivativesPerCapita.filter(el => el !== 0)
+
     locations.push(newLocation)
   })
 
   var days = [];
   for (var i = 0; i < locations[0].values.length - 2; i++) {
-    days.push(i + " - " + headers[4 + i]);
+    days.push(i)// + " - " + headers[4 + i]);
+  }
+
+  var daysWithDates = []
+  for (var i = 0; i < locations[0].values.length - 2; i++) {
+    // complicated set of methods with a simple purpose: reverses a date string, removes the year, reverses it back
+    daysWithDates.push(i + " - " + headers[4 + i].split("").reverse().join("").replace(/([^\/]*\/){1}/, '').split("").reverse().join(""));
   }
 
   const formatString = str => {
@@ -163,9 +182,9 @@ const DisplayData = ({ data }) => {
     const plotlyGraphs = []
     locations.forEach((location, index) => {
       if (!filter || location.country === filter || (Array.isArray(filter) && filter.includes(location.country))) {
-        if (!["Holy See", "MS Zaandam", "Luxembourg", "Diamond Princess", "San Marino"].includes(location.country))
+        if (!["Holy See", "MS Zaandam", "Luxembourg", "Diamond Princess", "San Marino", "Andorra", "Qatar"].includes(location.country))
           plotlyGraphs.push({
-            x: days,
+            x: property.includes("Shifted") ? days : daysWithDates,
             y: location[property],
             type: 'scatter',
             mode: 'lines',
@@ -196,17 +215,51 @@ const DisplayData = ({ data }) => {
       <GridMe
         content={
           <div>
-            <h2>Number of Cases - Raw Data</h2>
-            <p>Since we're only examining the total number of confirmed cases, not accounting for decreases like recovery and death, the total number of cases in every country/region increases or remains constant. Almost all regions show 1 of 3 possible parts of the logistic graph: a curved ramp-up (Russia), or a curved ramp-up into roughly a line (US), or an upward curve into a line which curves toward horizontal (Spain), which is a logistic curve.</p>
+            <h2>Daily Infected % - Raw Data</h2>
+            <p>Since we're only examining the total number of confirmed cases, not accounting for decreases like recovery and death, the total number of cases in every country/region increases or remains constant. (Decreases represent corrected data)</p>
+            <p>Almost all regions show 1 of 3 possible parts of the <b>logistic graph</b>: a curved ramp-up (Russia), or a curved ramp-up into roughly a line (US), or an upward curve into a line which curves toward horizontal (Spain), which is a logistic curve.</p>
             <p>So far, these patterns don't directly suggest chaos: it still seems possible there might be some parameters which control the shape of the curves predictably, potentially population density, weather patterns, etc.</p>
             <p><b>Double click/tap</b> on a region in the key on the right to focus on that country. Then <b>single click/tap</b> on more regions to compare.</p>
-            <p>When comparing data from different regions, it's most important to look at the <i>percent of each region that is infected</i>, instead of the plain number of infections. This helps "level the field" between all regions, because regions with high populations will most likely have more cases.</p>
+            <p>When comparing data from different regions, it's most important to look at the <i>percent of each region that is infected</i>, instead of the plain number of infections. This helps "level the field" between regions by considering their different population sizes.</p>
           </div>
         }
         graph={
           <Plot
             data={formatLocationsForPlotly({ locations, property: "valuesPerCapita" })}
-            layout={{ title: 'Daily Coronavirus Cases by Country, as a Proportion of Population', width: 3 / 5 * width }}
+            layout={{ 
+              title: 'Daily Coronavirus Cases by Country, as a Percentage of Population', 
+              width: 3 / 5 * width,
+              xaxis: {
+                dtick: 3,
+                title:"Date"
+              }, 
+              yaxis:{title:"% Infected"} 
+             }}
+          />
+        }
+      />
+
+<GridMe
+        content={
+          <div>
+            <h2>Daily Infected % - Shifted to Start Date</h2>
+            <p>In the second graph, we can see the infected percentage compared to days since the first infection in a country. This graph is more revealing.</p>
+            <p>Interestingly, <b>only 72 days</b> after the first case in <b>Iceland</b>, the country has almost completely <b>stopped</b> the spread. Meanwhile, the <b>US is 107 days in and still seeing almost linear positive spread.</b></p> On the other hand, the <b>infected percentage climbed much higher and faster in Iceland than the US</b>.
+            <p>These differences begin to point at an unpredictable system.</p>
+          </div>
+        }
+        graph={
+          <Plot
+            data={formatLocationsForPlotly({ locations, property: "valuesPerCapitaShifted" })}
+            layout={{ 
+              title: 'Daily Coronavirus Cases by Country, as a Percentage of Population,<br>Related to Days-Since-Patient-Zero in Each Country', 
+              width: 3 / 5 * width, 
+              xaxis: {
+                dtick: 5,
+                title: "Days since first patient in country"
+              },
+              yaxis:{title:"% Infected"} 
+             }}
           />
         }
       />
@@ -216,17 +269,20 @@ const DisplayData = ({ data }) => {
           <div>
             <h2>Rate of Spread - First Derivative</h2>
             <p>While the raw data shows mostly upward trajectories with some small bumps and jumps, the daily rate of growth shows a lot of variation.</p>
-            <p>For example, in the US from day 92 to day 99, just one week, the daily growth rate decreases by ~30% and increases back to almost the same starting point.</p>
+            <p>For example, in the US from day 67 to day 74 (), just one week, the daily growth rate decreases by ~30% and increases back to almost the same starting point.</p>
             <p>We also see drastically different behavior between different regions, unlike the roughly logistic graphs of the Raw Data.</p>
             <p>For example, compare the spread rates of the US and Spain. By March 24th, the spread rate in Spain started to decline, while the US spread rate was just starting to increase. There are numerous different patterns exhibited between different pairs of countries.</p>
             <p>The amount of unpredictable variation within a country and different possible models for each country suggest chaos.</p>
-            <p>However, most countries still follow a very rought pattern of increasing and then leveling-off and decreasing spread rates, so we continue to investigate.</p>
+            <p>However, most countries still follow a very rough pattern of increasing and then leveling-off and decreasing spread rates, so we continue to investigate.</p>
           </div>
         }
         graph={
           <Plot
-            data={formatLocationsForPlotly({ locations, property: "derivativesPerCapita" })}
-            layout={{ title: 'Derivative of Daily Coronavirus Cases by Country, as a Proportion of Population', width: 3 / 5 * width }}
+            data={formatLocationsForPlotly({ locations, property: "derivativesPerCapitaShifted" })}
+            layout={{ title: 'Derivative of Daily Coronavirus Cases, by Country,<br>Related to Days-Since-Patient-Zero in Each Country', width: 3 / 5 * width, xaxis: {
+              dtick: 5,
+              title: "Days since first patient in country"
+            }}}
           />
         }
       />
@@ -244,24 +300,13 @@ const DisplayData = ({ data }) => {
         }
         graph={
           <Plot
-            data={formatLocationsForPlotly({ locations, property: "doubleDerivativesPerCapita" })}
-            layout={{ title: 'Second-derivative of Daily Coronavirus Cases, by Country', width: 3 / 5 * width }}
+            data={formatLocationsForPlotly({ locations, property: "doubleDerivativesPerCapitaShifted" })}
+            layout={{ title: 'Second-derivative of Daily Coronavirus Cases, by Country,<br>Related to Days-Since-Patient-Zero in Each Country', width: 3 / 5 * width, xaxis: {
+              dtick: 5,
+              title: "Days since first patient in country"
+            } }}
           />
         }
-      />
-      <GridMe
-        content={<h2>TEST HEADER</h2>}
-        graph={
-          <Plot
-            data={formatLocationsForPlotly({
-              locations: locations.filter(function (obj) {
-                return !obj.region;
-              }), property: "doubleDerivativesPerCapita"
-            })}
-            layout={{ title: 'Second-derivative of Daily Coronavirus Cases per Capita, by Country', width: 3 / 5 * width }}
-          />
-        }
-        className={"secDerPerCap"}
       />
       {/* <RawDataTable data={data} headers={headers}/> */}
       <Sources />
