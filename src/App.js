@@ -118,7 +118,8 @@ function App() {
 const DisplayData = ({ data }) => {
   const { width } = useWindowSize()
   const headers = data[0]
-  console.log(headers)
+
+  const [showAnalysis, setShowAnalysis] = React.useState(false)
 
   const pointDerivative = (index, numbers) => {
     if (index === 0) return (numbers[1] - numbers[0])
@@ -150,7 +151,7 @@ const DisplayData = ({ data }) => {
       return pointDerivative(index, counts)
     })
     newLocation.derivativesPerCapitaShifted = newLocation.derivativesPerCapita.filter(el => el !== 0)
-    
+
     // Calculate double derivatives, double derivatives per capita, and shifted double derivatives per capita
     newLocation.doubleDerivatives = newLocation.derivatives.map((_, index, counts) => {
       return pointDerivative(index, counts)
@@ -212,9 +213,10 @@ const DisplayData = ({ data }) => {
 
   return (
     <>
+    <button onClick={() => setShowAnalysis(!showAnalysis)}>Show/Hide Analysis</button>
       <GridMe
         content={
-          <div>
+          <div style={{ display: showAnalysis ? "block" : "none" }}>
             <h2>Daily Infected % - Raw Data</h2>
             <p>Since we're only examining the total number of confirmed cases, not accounting for decreases like recovery and death, the total number of cases in every country/region increases or remains constant. (Decreases represent corrected data)</p>
             <p>Almost all regions show 1 of 3 possible parts of the <b>logistic graph</b>: a curved ramp-up (Russia), or a curved ramp-up into roughly a line (US), or an upward curve into a line which curves toward horizontal (Spain), which is a logistic curve.</p>
@@ -226,22 +228,22 @@ const DisplayData = ({ data }) => {
         graph={
           <Plot
             data={formatLocationsForPlotly({ locations, property: "valuesPerCapita" })}
-            layout={{ 
-              title: 'Daily Coronavirus Cases by Country, as a Percentage of Population', 
+            layout={{
+              title: 'Daily Coronavirus Cases by Country, as a Percentage of Population',
               width: 3 / 5 * width,
               xaxis: {
                 dtick: 3,
-                title:"Date"
-              }, 
-              yaxis:{title:"% Infected"} 
-             }}
+                title: "Date"
+              },
+              yaxis: { title: "% Infected" }
+            }}
           />
         }
       />
 
-<GridMe
+      <GridMe
         content={
-          <div>
+          <div style={{ display: showAnalysis ? "block" : "none" }}>
             <h2>Daily Infected % - Shifted to Start Date</h2>
             <p>In the second graph, we can see the infected percentage compared to days since the first infection in a country. This graph is more revealing.</p>
             <p>Interestingly, <b>only 72 days</b> after the first case in <b>Iceland</b>, the country has almost completely <b>stopped</b> the spread. Meanwhile, the <b>US is 107 days in and still seeing almost linear positive spread.</b></p> On the other hand, the <b>infected percentage climbed much higher and faster in Iceland than the US</b>.
@@ -251,22 +253,22 @@ const DisplayData = ({ data }) => {
         graph={
           <Plot
             data={formatLocationsForPlotly({ locations, property: "valuesPerCapitaShifted" })}
-            layout={{ 
-              title: 'Daily Coronavirus Cases by Country, as a Percentage of Population,<br>Related to Days-Since-Patient-Zero in Each Country', 
-              width: 3 / 5 * width, 
+            layout={{
+              title: 'Daily Coronavirus Cases by Country, as a Percentage of Population,<br>Related to Days-Since-Patient-Zero in Each Country',
+              width: 3 / 5 * width,
               xaxis: {
                 dtick: 5,
                 title: "Days since first patient in country"
               },
-              yaxis:{title:"% Infected"} 
-             }}
+              yaxis: { title: "% Infected" }
+            }}
           />
         }
       />
 
       <GridMe
         content={
-          <div>
+          <div style={{ display: showAnalysis ? "block" : "none" }}>
             <h2>Rate of Spread - First Derivative</h2>
             <p>While the raw data shows mostly upward trajectories with some small bumps and jumps, the daily rate of growth shows a lot of variation.</p>
             <p>For example, in the US from day 67 to day 74 (), just one week, the daily growth rate decreases by ~30% and increases back to almost the same starting point.</p>
@@ -279,17 +281,19 @@ const DisplayData = ({ data }) => {
         graph={
           <Plot
             data={formatLocationsForPlotly({ locations, property: "derivativesPerCapitaShifted" })}
-            layout={{ title: 'Derivative of Daily Coronavirus Cases, by Country,<br>Related to Days-Since-Patient-Zero in Each Country', width: 3 / 5 * width, xaxis: {
-              dtick: 5,
-              title: "Days since first patient in country"
-            }}}
+            layout={{
+              title: 'Derivative of Daily Coronavirus Cases, by Country,<br>Related to Days-Since-Patient-Zero in Each Country', width: 3 / 5 * width, xaxis: {
+                dtick: 5,
+                title: "Days since first patient in country"
+              }
+            }}
           />
         }
       />
 
       <GridMe
         content={
-          <div>
+          <div style={{ display: showAnalysis ? "block" : "none" }}>
             <h2>Is COVID Spreading Faster or Slower?<br />Second Derivative</h2>
             <p>Even without a mathematical understanding of the term, someone could call this "chaotic."</p>
             <p>The second derivative, the rate of change of the spread rate, represents activity in a system which changes its behavior.</p>
@@ -301,15 +305,17 @@ const DisplayData = ({ data }) => {
         graph={
           <Plot
             data={formatLocationsForPlotly({ locations, property: "doubleDerivativesPerCapitaShifted" })}
-            layout={{ title: 'Second-derivative of Daily Coronavirus Cases, by Country,<br>Related to Days-Since-Patient-Zero in Each Country', width: 3 / 5 * width, xaxis: {
-              dtick: 5,
-              title: "Days since first patient in country"
-            } }}
+            layout={{
+              title: 'Second-derivative of Daily Coronavirus Cases, by Country,<br>Related to Days-Since-Patient-Zero in Each Country', width: 3 / 5 * width, xaxis: {
+                dtick: 5,
+                title: "Days since first patient in country"
+              }
+            }}
           />
         }
       />
-      {/* <RawDataTable data={data} headers={headers}/> */}
-      <Sources />
+      <RawDataTable data={data} headers={headers} />
+      {showAnalysis && <Sources />}
     </>
   )
 }
