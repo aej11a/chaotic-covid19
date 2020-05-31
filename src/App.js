@@ -20,8 +20,9 @@ const Plot = createPlotlyComponent(Plotly);
 
 function App() {
   const [data, setData] = React.useState()
+  console.log(data)
 
-  //   // script to process the data from the csv
+    // script to process the data from the csv
   //   const getCsvData = async () => {
   //   const fetchFile = () => fetch('..\\time_series_covid19_confirmed_global.csv').then(response => {
   //     let reader = response.body.getReader();
@@ -47,7 +48,35 @@ function App() {
   //    }, [data])
 
   useEffect(() => {
-    fetch("..\\formattedData.json").then(res => res.json()).then(res => setData(res))
+    fetch("..\\formattedData.json").then(res => res.json()).then(rawData => {
+
+      const locationsWithRegionsRemoved = {}
+
+      rawData.forEach((location, idx) => {
+        if(idx !== 0){
+          // below: means a region exists on this entry
+          if(location[0]){
+            if(!locationsWithRegionsRemoved[location[1]]){ // algorithm has not yet found a region with this country
+              location[0] = ""
+              locationsWithRegionsRemoved[location[1]] = location
+            }
+            else {
+              const summedLocation = locationsWithRegionsRemoved[location[1]]
+              for(let i = 4; i < location.length; i++){
+                summedLocation[i] = parseInt(summedLocation[i]) + parseInt(location[i]) + ""
+              }
+            }
+          }
+          else {
+            locationsWithRegionsRemoved[location[1]] = location
+          }
+        }
+      })
+
+      console.log({summed: Object.values(locationsWithRegionsRemoved)})
+
+      setData([rawData[0], ...Object.values(locationsWithRegionsRemoved)])
+    })
   }, [])
 
   return (
@@ -161,7 +190,7 @@ const DisplayData = ({ data }) => {
     })
     newLocation.doubleDerivativesPerCapitaShifted = newLocation.doubleDerivativesPerCapita.filter(el => el !== 0)
 
-    locations.push(newLocation)
+    if(!newLocation.region) locations.push(newLocation)
   })
 
   var days = [];
@@ -171,7 +200,7 @@ const DisplayData = ({ data }) => {
 
   var daysWithDates = []
   for (var i = 0; i < locations[0].values.length - 2; i++) {
-    // complicated set of methods with a simple purpose: reverses a date string, removes the year, reverses it back
+    // reverses a date string, removes the year, reverses it back
     daysWithDates.push(i + " - " + headers[4 + i].split("").reverse().join("").replace(/([^\/]*\/){1}/, '').split("").reverse().join(""));
   }
 
@@ -213,7 +242,7 @@ const DisplayData = ({ data }) => {
 
   return (
     <>
-    <button onClick={() => setShowAnalysis(!showAnalysis)}>Show/Hide Analysis</button>
+      <button onClick={() => setShowAnalysis(!showAnalysis)}>Show/Hide Analysis</button>
       <GridMe
         content={
           <div style={{ display: showAnalysis ? "block" : "none" }}>
@@ -337,6 +366,11 @@ const Sources = () => {
       <li>H. Poincaré, Acta Math. 13, 1 (1890).</li>
       <li><a href="www.scielo.br/scielo.php?script=sci_arttext&pid=S1806-11172017000100409&lng=en&tlng=en">Cattani, et al. “Deterministic Chaos Theory: Basic Concepts.” Revista Brasileira De Ensino De Física, Sociedade Brasileira De Física, 17 Oct. 2016, www.scielo.br/scielo.php?script=sci_arttext&pid=S1806-11172017000100409&lng=en&tlng=en</a></li>
       <li><a href="https://www.physicscentral.com/explore/action/chaos.cfm">https://www.physicscentral.com/explore/action/chaos.cfm</a></li>
+      {/*https://www.ceicdata.com/en/indicator/taiwan/population
+        https://www.worldometers.info/world-population/holy-see-population/
+        https://www.hollandamerica.com/en_US/cruise-ships/ms-zaandam/3.html
+        https://www.worldometers.info/world-population/western-sahara-population/
+      */}
     </ol>
   )
 }
