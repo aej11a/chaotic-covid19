@@ -80,6 +80,15 @@ function App() {
   }, [])
 
   return (
+    <div style={{ textAlign: "center" }}>
+      <h1>COVID-19 Modeled as a Chaotic System</h1>
+    {
+          data && data.length > 0 && <DisplayData data={data} />
+        }
+      </div>
+  )
+
+  /*return (
     <div className="App">
       <h1>Coronavirus Modeled as a Chaotic System</h1>
       <Accordion allowZeroExpanded={true}>
@@ -141,7 +150,7 @@ function App() {
         }
       </div>
     </div>
-  );
+  );*/
 }
 
 const DisplayData = ({ data }) => {
@@ -242,7 +251,7 @@ const DisplayData = ({ data }) => {
 
   return (
     <>
-      <button onClick={() => setShowAnalysis(!showAnalysis)}>Show/Hide Analysis</button>
+      {/* <button onClick={() => setShowAnalysis(!showAnalysis)}>Show/Hide Analysis</button> */}
       <GridMe
         content={
           <div style={{ display: showAnalysis ? "block" : "none" }}>
@@ -351,10 +360,10 @@ const DisplayData = ({ data }) => {
 
 const GridMe = ({ content, graph, className }) => (
   <div className={className}>
-    <div style={{ textAlign: "left", width: "35%", display: "inline-block", verticalAlign: "top", padding: 20 }}>
+    {/* <div style={{ textAlign: "left", width: "35%", display: "inline-block", verticalAlign: "top", padding: 20 }}>
       {content}
-    </div>
-    <div style={{ textAlign: "right", display: "inline-block" }}>
+    </div> */}
+    <div style={{ textAlign: "center", display: "inline-block" }}>
       {graph}
     </div>
   </div>
